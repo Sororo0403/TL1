@@ -11,8 +11,8 @@ from mathutils import Vector
 # =========================
 bl_info = {
     "name": "レベルエディタ",
-    "author": "Taro Kamata",
-    "version": (1, 5),
+    "author": "Taro Hatanaka",
+    "version": (1, 6),
     "blender": (3, 3, 1),
     "location": "トップバー",
     "description": "レベルエディタ",
@@ -31,7 +31,6 @@ class DrawCollider:
         vertices = {"pos": []}
         indices = []
 
-        # 立方体の頂点（中心からのオフセット）
         offsets = [
             (-0.5, -0.5, -0.5),
             (0.5, -0.5, -0.5),
@@ -43,20 +42,29 @@ class DrawCollider:
             (0.5, 0.5, 0.5),
         ]
 
-        size = Vector((2.0, 2.0, 2.0))
-
         for obj in bpy.context.scene.objects:
+
+            # コライダーが無いものはスキップ
+            if "collider" not in obj:
+                continue
 
             start = len(vertices["pos"])
 
+            center = obj["collider_center"]
+            size = obj["collider_size"]
+
             for offset in offsets:
-                pos = obj.location.copy()
-                pos.x += offset[0] * size.x
-                pos.y += offset[1] * size.y
-                pos.z += offset[2] * size.z
+                pos = Vector(center)
+
+                pos.x += offset[0] * size[0]
+                pos.y += offset[1] * size[1]
+                pos.z += offset[2] * size[2]
+
+                # ローカル → ワールド変換
+                pos = obj.matrix_world @ pos
+
                 vertices["pos"].append(pos)
 
-            # 12本の辺
             edges = [
                 (0, 1),
                 (2, 3),
@@ -75,6 +83,9 @@ class DrawCollider:
             for e in edges:
                 indices.append((start + e[0], start + e[1]))
 
+        if not vertices["pos"]:
+            return
+
         shader = gpu.shader.from_builtin("UNIFORM_COLOR")
 
         batch = gpu_extras.batch.batch_for_shader(
@@ -82,17 +93,16 @@ class DrawCollider:
         )
 
         shader.bind()
-        shader.uniform_float("color", (0.2, 0.8, 1.0, 1.0))  # 水色
+        shader.uniform_float("color", (0.2, 0.8, 1.0, 1.0))
         batch.draw(shader)
 
 
 # =========================
-# カスタムプロパティ追加Operator
+# ファイル名追加
 # =========================
 class MYADDON_OT_add_filename(bpy.types.Operator):
     bl_idname = "myaddon.add_filename"
     bl_label = "FileName追加"
-    bl_options = {"REGISTER", "UNDO"}
 
     def execute(self, context):
         context.object["file_name"] = ""
@@ -100,7 +110,24 @@ class MYADDON_OT_add_filename(bpy.types.Operator):
 
 
 # =========================
-# Panel（UI）
+# コライダー追加
+# =========================
+class MYADDON_OT_add_collider(bpy.types.Operator):
+    bl_idname = "myaddon.add_collider"
+    bl_label = "コライダー追加"
+
+    def execute(self, context):
+        obj = context.object
+
+        obj["collider"] = "BOX"
+        obj["collider_center"] = Vector((0.0, 0.0, 0.0))
+        obj["collider_size"] = Vector((2.0, 2.0, 2.0))
+
+        return {"FINISHED"}
+
+
+# =========================
+# FileName Panel
 # =========================
 class OBJECT_PT_file_name(bpy.types.Panel):
     bl_idname = "OBJECT_PT_file_name"
@@ -123,6 +150,31 @@ class OBJECT_PT_file_name(bpy.types.Panel):
 
 
 # =========================
+# Collider Panel
+# =========================
+class OBJECT_PT_collider(bpy.types.Panel):
+    bl_idname = "OBJECT_PT_collider"
+    bl_label = "Collider"
+    bl_space_type = "PROPERTIES"
+    bl_region_type = "WINDOW"
+    bl_context = "object"
+
+    def draw(self, context):
+        layout = self.layout
+        obj = context.object
+
+        if obj is None:
+            return
+
+        if "collider" in obj:
+            layout.prop(obj, '["collider"]', text="Type")
+            layout.prop(obj, '["collider_center"]', text="Center")
+            layout.prop(obj, '["collider_size"]', text="Size")
+        else:
+            layout.operator("myaddon.add_collider")
+
+
+# =========================
 # シーン出力
 # =========================
 class MYADDON_OT_export_scene(bpy.types.Operator, bpy_extras.io_utils.ExportHelper):
@@ -133,10 +185,7 @@ class MYADDON_OT_export_scene(bpy.types.Operator, bpy_extras.io_utils.ExportHelp
 
     def execute(self, context):
 
-        print("==== シーン出力開始 ====")
-
         objects = list(context.scene.objects)
-
         id_map = {obj: i for i, obj in enumerate(objects)}
 
         data = []
@@ -144,45 +193,37 @@ class MYADDON_OT_export_scene(bpy.types.Operator, bpy_extras.io_utils.ExportHelp
         for obj in objects:
 
             loc, rot, scale = obj.matrix_local.decompose()
-
             rot_euler = rot.to_euler()
-            rot_deg = (
-                math.degrees(rot_euler.x),
-                math.degrees(rot_euler.y),
-                math.degrees(rot_euler.z),
-            )
-
-            obj_id = id_map[obj]
-            parent_id = id_map[obj.parent] if obj.parent else -1
 
             entry = {
-                "id": obj_id,
+                "id": id_map[obj],
                 "name": obj.name,
                 "type": obj.type,
                 "position": [loc.x, loc.y, loc.z],
-                "rotation": list(rot_deg),
+                "rotation": [
+                    math.degrees(rot_euler.x),
+                    math.degrees(rot_euler.y),
+                    math.degrees(rot_euler.z),
+                ],
                 "scale": [scale.x, scale.y, scale.z],
-                "parent": parent_id,
+                "parent": id_map[obj.parent] if obj.parent else -1,
             }
 
             if "file_name" in obj:
                 entry["file_name"] = obj["file_name"]
 
+            # コライダー出力
+            if "collider" in obj:
+                entry["collider"] = obj["collider"]
+                entry["collider_center"] = list(obj["collider_center"])
+                entry["collider_size"] = list(obj["collider_size"])
+
             data.append(entry)
 
-        path = self.filepath
+        with open(self.filepath, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=4, ensure_ascii=False)
 
-        try:
-            with open(path, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=4, ensure_ascii=False)
-
-            print("保存成功:", path)
-            self.report({"INFO"}, "シーン出力成功")
-
-        except Exception as e:
-            print("保存失敗:", e)
-            self.report({"ERROR"}, "保存失敗")
-
+        self.report({"INFO"}, "出力成功")
         return {"FINISHED"}
 
 
@@ -207,7 +248,9 @@ def submenu(self, context):
 # =========================
 classes = (
     MYADDON_OT_add_filename,
+    MYADDON_OT_add_collider,
     OBJECT_PT_file_name,
+    OBJECT_PT_collider,
     MYADDON_OT_export_scene,
     TOPBAR_MT_my_menu,
 )
@@ -219,7 +262,6 @@ def register():
 
     bpy.types.TOPBAR_MT_editor_menus.append(submenu)
 
-    # コライダー描画登録
     DrawCollider.handle = bpy.types.SpaceView3D.draw_handler_add(
         DrawCollider.draw_collider, (), "WINDOW", "POST_VIEW"
     )
@@ -230,10 +272,8 @@ def register():
 def unregister():
     bpy.types.TOPBAR_MT_editor_menus.remove(submenu)
 
-    # コライダー描画削除
-    if DrawCollider.handle is not None:
+    if DrawCollider.handle:
         bpy.types.SpaceView3D.draw_handler_remove(DrawCollider.handle, "WINDOW")
-        DrawCollider.handle = None
 
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
