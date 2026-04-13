@@ -2,6 +2,7 @@ import bpy
 import math
 import json
 import os
+import bpy_extras
 
 # =========================
 # アドオン情報
@@ -9,7 +10,7 @@ import os
 bl_info = {
     "name": "レベルエディタ",
     "author": "Taro Kamata",
-    "version": (1, 2),
+    "version": (1, 3),
     "blender": (3, 3, 1),
     "location": "トップバー",
     "description": "レベルエディタ",
@@ -18,12 +19,14 @@ bl_info = {
 
 
 # =========================
-# シーン出力（ID対応）
+# シーン出力（ExportHelper版）
 # =========================
-class MYADDON_OT_export_scene(bpy.types.Operator):
+class MYADDON_OT_export_scene(bpy.types.Operator, bpy_extras.io_utils.ExportHelper):
     bl_idname = "myaddon.export_scene"
     bl_label = "シーン出力（ID対応）"
-    bl_options = {"REGISTER", "UNDO"}
+
+    # 🔥 これ必須（ないとエラー）
+    filename_ext = ".json"
 
     def execute(self, context):
 
@@ -31,12 +34,8 @@ class MYADDON_OT_export_scene(bpy.types.Operator):
 
         objects = list(context.scene.objects)
 
-        # =========================
         # ID割り当て
-        # =========================
-        id_map = {}
-        for i, obj in enumerate(objects):
-            id_map[obj] = i
+        id_map = {obj: i for i, obj in enumerate(objects)}
 
         data = []
 
@@ -54,9 +53,6 @@ class MYADDON_OT_export_scene(bpy.types.Operator):
             obj_id = id_map[obj]
             parent_id = id_map[obj.parent] if obj.parent else -1
 
-            print(f"[ID:{obj_id}] {obj.type} - {obj.name}")
-            print(f"  親ID: {parent_id}")
-
             entry = {
                 "id": obj_id,
                 "name": obj.name,
@@ -69,14 +65,10 @@ class MYADDON_OT_export_scene(bpy.types.Operator):
 
             data.append(entry)
 
-        # =========================
-        # 保存
-        # =========================
-        path = "C:/temp/scene.json"
+        # 🔥 ExportHelperが決めたパスを使う
+        path = self.filepath
 
         try:
-            os.makedirs(os.path.dirname(path), exist_ok=True)
-
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=4, ensure_ascii=False)
 
