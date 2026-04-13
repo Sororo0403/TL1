@@ -1,7 +1,6 @@
 import bpy
 import math
 import json
-import os
 import bpy_extras
 
 # =========================
@@ -10,7 +9,7 @@ import bpy_extras
 bl_info = {
     "name": "レベルエディタ",
     "author": "Taro Kamata",
-    "version": (1, 3),
+    "version": (1, 4),
     "blender": (3, 3, 1),
     "location": "トップバー",
     "description": "レベルエディタ",
@@ -19,13 +18,49 @@ bl_info = {
 
 
 # =========================
-# シーン出力（ExportHelper版）
+# カスタムプロパティ追加Operator
+# =========================
+class MYADDON_OT_add_filename(bpy.types.Operator):
+    bl_idname = "myaddon.add_filename"
+    bl_label = "FileName追加"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        context.object["file_name"] = ""
+        return {"FINISHED"}
+
+
+# =========================
+# Panel（UI）
+# =========================
+class OBJECT_PT_file_name(bpy.types.Panel):
+    bl_idname = "OBJECT_PT_file_name"
+    bl_label = "FileName"
+    bl_space_type = "PROPERTIES"
+    bl_region_type = "WINDOW"
+    bl_context = "object"
+
+    def draw(self, context):
+        layout = self.layout
+        obj = context.object
+
+        if obj is None:
+            return
+
+        # すでにある場合
+        if "file_name" in obj:
+            layout.prop(obj, '["file_name"]', text="FileName")
+        else:
+            layout.operator("myaddon.add_filename")
+
+
+# =========================
+# シーン出力
 # =========================
 class MYADDON_OT_export_scene(bpy.types.Operator, bpy_extras.io_utils.ExportHelper):
     bl_idname = "myaddon.export_scene"
-    bl_label = "シーン出力（ID対応）"
+    bl_label = "シーン出力（JSON）"
 
-    # 🔥 これ必須（ないとエラー）
     filename_ext = ".json"
 
     def execute(self, context):
@@ -63,9 +98,12 @@ class MYADDON_OT_export_scene(bpy.types.Operator, bpy_extras.io_utils.ExportHelp
                 "parent": parent_id,
             }
 
+            # 🔥 カスタムプロパティ追加
+            if "file_name" in obj:
+                entry["file_name"] = obj["file_name"]
+
             data.append(entry)
 
-        # 🔥 ExportHelperが決めたパスを使う
         path = self.filepath
 
         try:
@@ -91,7 +129,7 @@ class TOPBAR_MT_my_menu(bpy.types.Menu):
 
     def draw(self, context):
         layout = self.layout
-        layout.operator(MYADDON_OT_export_scene.bl_idname, icon="EXPORT")
+        layout.operator("myaddon.export_scene", icon="EXPORT")
 
 
 # =========================
@@ -105,6 +143,8 @@ def submenu(self, context):
 # 登録
 # =========================
 classes = (
+    MYADDON_OT_add_filename,
+    OBJECT_PT_file_name,
     MYADDON_OT_export_scene,
     TOPBAR_MT_my_menu,
 )
