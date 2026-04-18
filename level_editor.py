@@ -10,12 +10,12 @@ from mathutils import Vector
 # アドオン情報
 # =========================
 bl_info = {
-    "name": "レベルエディタ",
+    "name": "レベルエディタ（JSONツリー版）",
     "author": "Taro Hatanaka",
-    "version": (1, 6),
+    "version": (2, 0),
     "blender": (3, 3, 1),
     "location": "トップバー",
-    "description": "レベルエディタ",
+    "description": "レベルエディタ（JSONツリー構造対応）",
     "category": "Object",
 }
 
@@ -43,8 +43,6 @@ class DrawCollider:
         ]
 
         for obj in bpy.context.scene.objects:
-
-            # コライダーが無いものはスキップ
             if "collider" not in obj:
                 continue
 
@@ -60,9 +58,7 @@ class DrawCollider:
                 pos.y += offset[1] * size[1]
                 pos.z += offset[2] * size[2]
 
-                # ローカル → ワールド変換
                 pos = obj.matrix_world @ pos
-
                 vertices["pos"].append(pos)
 
             edges = [
@@ -87,7 +83,6 @@ class DrawCollider:
             return
 
         shader = gpu.shader.from_builtin("UNIFORM_COLOR")
-
         batch = gpu_extras.batch.batch_for_shader(
             shader, "LINES", vertices, indices=indices
         )
@@ -98,7 +93,7 @@ class DrawCollider:
 
 
 # =========================
-# ファイル名追加
+# FileName追加
 # =========================
 class MYADDON_OT_add_filename(bpy.types.Operator):
     bl_idname = "myaddon.add_filename"
@@ -110,7 +105,7 @@ class MYADDON_OT_add_filename(bpy.types.Operator):
 
 
 # =========================
-# コライダー追加
+# Collider追加
 # =========================
 class MYADDON_OT_add_collider(bpy.types.Operator):
     bl_idname = "myaddon.add_collider"
@@ -118,19 +113,16 @@ class MYADDON_OT_add_collider(bpy.types.Operator):
 
     def execute(self, context):
         obj = context.object
-
         obj["collider"] = "BOX"
         obj["collider_center"] = Vector((0.0, 0.0, 0.0))
         obj["collider_size"] = Vector((2.0, 2.0, 2.0))
-
         return {"FINISHED"}
 
 
 # =========================
-# FileName Panel
+# FileNameパネル
 # =========================
 class OBJECT_PT_file_name(bpy.types.Panel):
-    bl_idname = "OBJECT_PT_file_name"
     bl_label = "FileName"
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
@@ -144,16 +136,15 @@ class OBJECT_PT_file_name(bpy.types.Panel):
             return
 
         if "file_name" in obj:
-            layout.prop(obj, '["file_name"]', text="FileName")
+            layout.prop(obj, '["file_name"]')
         else:
             layout.operator("myaddon.add_filename")
 
 
 # =========================
-# Collider Panel
+# Colliderパネル
 # =========================
 class OBJECT_PT_collider(bpy.types.Panel):
-    bl_idname = "OBJECT_PT_collider"
     bl_label = "Collider"
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
@@ -167,15 +158,15 @@ class OBJECT_PT_collider(bpy.types.Panel):
             return
 
         if "collider" in obj:
-            layout.prop(obj, '["collider"]', text="Type")
-            layout.prop(obj, '["collider_center"]', text="Center")
-            layout.prop(obj, '["collider_size"]', text="Size")
+            layout.prop(obj, '["collider"]')
+            layout.prop(obj, '["collider_center"]')
+            layout.prop(obj, '["collider_size"]')
         else:
             layout.operator("myaddon.add_collider")
 
 
 # =========================
-# シーン出力
+# JSONエクスポート
 # =========================
 class MYADDON_OT_export_scene(bpy.types.Operator, bpy_extras.io_utils.ExportHelper):
     bl_idname = "myaddon.export_scene"
@@ -183,47 +174,65 @@ class MYADDON_OT_export_scene(bpy.types.Operator, bpy_extras.io_utils.ExportHelp
 
     filename_ext = ".json"
 
-    def execute(self, context):
+    # 再帰関数
+    def parse_object(self, parent_list, obj):
 
-        objects = list(context.scene.objects)
-        id_map = {obj: i for i, obj in enumerate(objects)}
+        data = {}
 
-        data = []
+        data["type"] = obj.type
+        data["name"] = obj.name
 
-        for obj in objects:
+        # Transform
+        loc, rot, scale = obj.matrix_local.decompose()
+        rot = rot.to_euler()
 
-            loc, rot, scale = obj.matrix_local.decompose()
-            rot_euler = rot.to_euler()
+        data["transform"] = {
+            "translation": [loc.x, loc.y, loc.z],
+            "rotation": [
+                math.degrees(rot.x),
+                math.degrees(rot.y),
+                math.degrees(rot.z),
+            ],
+            "scaling": [scale.x, scale.y, scale.z],
+        }
 
-            entry = {
-                "id": id_map[obj],
-                "name": obj.name,
-                "type": obj.type,
-                "position": [loc.x, loc.y, loc.z],
-                "rotation": [
-                    math.degrees(rot_euler.x),
-                    math.degrees(rot_euler.y),
-                    math.degrees(rot_euler.z),
-                ],
-                "scale": [scale.x, scale.y, scale.z],
-                "parent": id_map[obj.parent] if obj.parent else -1,
+        # file_name
+        if "file_name" in obj:
+            data["file_name"] = obj["file_name"]
+
+        # collider
+        if "collider" in obj:
+            data["collider"] = {
+                "type": obj["collider"],
+                "center": list(obj["collider_center"]),
+                "size": list(obj["collider_size"]),
             }
 
-            if "file_name" in obj:
-                entry["file_name"] = obj["file_name"]
+        parent_list.append(data)
 
-            # コライダー出力
-            if "collider" in obj:
-                entry["collider"] = obj["collider"]
-                entry["collider_center"] = list(obj["collider_center"])
-                entry["collider_size"] = list(obj["collider_size"])
+        # 子供（再帰）
+        if len(obj.children) > 0:
+            data["children"] = []
+            for child in obj.children:
+                self.parse_object(data["children"], child)
 
-            data.append(entry)
+    def execute(self, context):
+
+        json_root = {}
+        json_root["name"] = "scene"
+        json_root["objects"] = []
+
+        # ルートオブジェクトだけ
+        for obj in bpy.context.scene.objects:
+            if obj.parent is None:
+                self.parse_object(json_root["objects"], obj)
+
+        json_text = json.dumps(json_root, indent=4, ensure_ascii=False)
 
         with open(self.filepath, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=4, ensure_ascii=False)
+            f.write(json_text)
 
-        self.report({"INFO"}, "出力成功")
+        self.report({"INFO"}, "JSON出力成功")
         return {"FINISHED"}
 
 
@@ -266,7 +275,7 @@ def register():
         DrawCollider.draw_collider, (), "WINDOW", "POST_VIEW"
     )
 
-    print("レベルエディタが有効化されました。")
+    print("アドオン有効化")
 
 
 def unregister():
@@ -278,7 +287,7 @@ def unregister():
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
 
-    print("レベルエディタが無効化されました。")
+    print("アドオン無効化")
 
 
 if __name__ == "__main__":
