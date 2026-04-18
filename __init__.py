@@ -11,6 +11,7 @@ import bpy
 from .draw_collider import DrawCollider
 from .add_filename import MYADDON_OT_add_filename
 from .add_collider import MYADDON_OT_add_collider
+from .disabled import MYADDON_OT_add_disabled, OBJECT_PT_disabled
 from .file_name import OBJECT_PT_file_name
 from .collider import OBJECT_PT_collider
 from .export_scene import MYADDON_OT_export_scene
@@ -21,7 +22,7 @@ class TOPBAR_MT_my_menu(bpy.types.Menu):
     bl_label = "MyMenu"
 
     def draw(self, context):
-        self.layout.operator("myaddon.export_scene")
+        self.layout.operator("myaddon.export_scene", text="シーン出力")
 
 
 def submenu(self, context):
@@ -31,8 +32,10 @@ def submenu(self, context):
 classes = (
     MYADDON_OT_add_filename,
     MYADDON_OT_add_collider,
+    MYADDON_OT_add_disabled,
     OBJECT_PT_file_name,
     OBJECT_PT_collider,
+    OBJECT_PT_disabled,
     MYADDON_OT_export_scene,
     TOPBAR_MT_my_menu,
 )
@@ -48,12 +51,17 @@ def register():
         DrawCollider.draw_collider, (), "WINDOW", "POST_VIEW"
     )
 
+    print("レベルエディタが有効化されました。")
+
 
 def unregister():
     bpy.types.TOPBAR_MT_editor_menus.remove(submenu)
 
-    if DrawCollider.handle:
+    if DrawCollider.handle is not None:
         bpy.types.SpaceView3D.draw_handler_remove(DrawCollider.handle, "WINDOW")
+        DrawCollider.handle = None
 
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
+
+    print("レベルエディタが無効化されました。")
