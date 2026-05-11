@@ -15,6 +15,8 @@ from .disabled import MYADDON_OT_add_disabled, OBJECT_PT_disabled
 from .file_name import OBJECT_PT_file_name
 from .collider import OBJECT_PT_collider
 from .export_scene import MYADDON_OT_export_scene
+from .spawn import MYADDON_OT_spawn_import_symbol
+from .create_spawn import MYADDON_OT_spawn_create_symbol
 
 
 class TOPBAR_MT_my_menu(bpy.types.Menu):
@@ -22,7 +24,13 @@ class TOPBAR_MT_my_menu(bpy.types.Menu):
     bl_label = "MyMenu"
 
     def draw(self, context):
-        self.layout.operator("myaddon.export_scene", text="シーン出力")
+        layout = self.layout
+
+        layout.operator("myaddon.spawn_create_symbol", text="出現ポイント作成")
+
+        layout.separator()
+
+        layout.operator("myaddon.export_scene", text="シーン出力")
 
 
 def submenu(self, context):
@@ -37,6 +45,8 @@ classes = (
     OBJECT_PT_collider,
     OBJECT_PT_disabled,
     MYADDON_OT_export_scene,
+    MYADDON_OT_spawn_import_symbol,
+    MYADDON_OT_spawn_create_symbol,
     TOPBAR_MT_my_menu,
 )
 
@@ -65,3 +75,7 @@ def unregister():
         bpy.utils.unregister_class(cls)
 
     print("レベルエディタが無効化されました。")
+
+
+if __name__ == "__main__":
+    register()
