@@ -39,10 +39,19 @@ class MYADDON_OT_spawn_import_symbol(bpy.types.Operator):
         before_names = set(bpy.data.objects.keys())
         bpy.ops.object.select_all(action="DESELECT")
 
-        try:
-            bpy.ops.import_scene.obj(filepath=filepath)
-        except AttributeError:
-            bpy.ops.wm.obj_import(filepath=filepath)
+        errors = []
+        for import_obj in (bpy.ops.wm.obj_import, bpy.ops.import_scene.obj):
+            try:
+                import_obj(filepath=filepath)
+                break
+            except Exception as exc:
+                errors.append(str(exc))
+        else:
+            self.report(
+                {"WARNING"},
+                f"モデルの読み込みに失敗しました: {filepath} ({'; '.join(errors)})",
+            )
+            return {"CANCELLED"}
 
         imported_objects = [
             obj for obj in bpy.context.selected_objects if obj.name not in before_names
