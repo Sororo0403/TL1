@@ -16,7 +16,11 @@ from .file_name import OBJECT_PT_file_name
 from .collider import OBJECT_PT_collider
 from .export_scene import MYADDON_OT_export_scene
 from .spawn import MYADDON_OT_spawn_import_symbol
-from .create_spawn import MYADDON_OT_spawn_create_symbol
+from .create_spawn import (
+    MYADDON_OT_spawn_create_enemy_symbol,
+    MYADDON_OT_spawn_create_player_symbol,
+    MYADDON_OT_spawn_create_symbol,
+)
 
 
 class TOPBAR_MT_my_menu(bpy.types.Menu):
@@ -26,7 +30,8 @@ class TOPBAR_MT_my_menu(bpy.types.Menu):
     def draw(self, context):
         layout = self.layout
 
-        layout.operator("myaddon.spawn_create_symbol", text="出現ポイント作成")
+        layout.operator("myaddon.spawn_create_enemy_symbol")
+        layout.operator("myaddon.spawn_create_player_symbol")
 
         layout.separator()
 
@@ -47,6 +52,8 @@ classes = (
     MYADDON_OT_export_scene,
     MYADDON_OT_spawn_import_symbol,
     MYADDON_OT_spawn_create_symbol,
+    MYADDON_OT_spawn_create_enemy_symbol,
+    MYADDON_OT_spawn_create_player_symbol,
     TOPBAR_MT_my_menu,
 )
 

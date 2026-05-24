@@ -12,7 +12,10 @@ class MYADDON_OT_export_scene(bpy.types.Operator, bpy_extras.io_utils.ExportHelp
 
     def parse_object(self, parent_list, obj):
         data = {}
-        data["type"] = obj.type
+        if "type" in obj:
+            data["type"] = obj["type"]
+        else:
+            data["type"] = obj.type
         data["name"] = obj.name
 
         loc, rot, scale = obj.matrix_local.decompose()
