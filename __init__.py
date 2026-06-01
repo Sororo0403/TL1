@@ -1,7 +1,7 @@
 bl_info = {
     "name": "レベルエディタ",
     "author": "Taro Hatanaka",
-    "version": (2, 0),
+    "version": (2, 1),
     "blender": (3, 3, 0),
     "category": "Object",
 }
@@ -14,7 +14,8 @@ from .add_collider import MYADDON_OT_add_collider
 from .disabled import MYADDON_OT_add_disabled, OBJECT_PT_disabled
 from .file_name import OBJECT_PT_file_name
 from .collider import OBJECT_PT_collider
-from .export_scene import MYADDON_OT_export_scene
+from .export_scene import MYADDON_OT_export_scene, MYADDON_OT_export_wp0_scene
+from .import_scene import MYADDON_OT_import_scene
 from .spawn import MYADDON_OT_spawn_import_symbol
 from .create_spawn import (
     MYADDON_OT_spawn_create_enemy_symbol,
@@ -24,7 +25,7 @@ from .create_spawn import (
 
 
 class TOPBAR_MT_my_menu(bpy.types.Menu):
-    bl_idname = "TOPBAR_MT_my_menu"
+    bl_idname = "myaddon_mt_my_menu"
     bl_label = "MyMenu"
 
     def draw(self, context):
@@ -35,7 +36,8 @@ class TOPBAR_MT_my_menu(bpy.types.Menu):
 
         layout.separator()
 
-        layout.operator("myaddon.export_scene", text="シーン出力")
+        layout.operator("myaddon.import_scene", text="シーン読み込み")
+        layout.operator("myaddon.export_wp0_scene", text="WP0へシーン出力")
 
 
 def submenu(self, context):
@@ -50,6 +52,8 @@ classes = (
     OBJECT_PT_collider,
     OBJECT_PT_disabled,
     MYADDON_OT_export_scene,
+    MYADDON_OT_export_wp0_scene,
+    MYADDON_OT_import_scene,
     MYADDON_OT_spawn_import_symbol,
     MYADDON_OT_spawn_create_symbol,
     MYADDON_OT_spawn_create_enemy_symbol,
@@ -72,7 +76,10 @@ def register():
 
 
 def unregister():
-    bpy.types.TOPBAR_MT_editor_menus.remove(submenu)
+    try:
+        bpy.types.TOPBAR_MT_editor_menus.remove(submenu)
+    except ValueError:
+        pass
 
     if DrawCollider.handle is not None:
         bpy.types.SpaceView3D.draw_handler_remove(DrawCollider.handle, "WINDOW")
