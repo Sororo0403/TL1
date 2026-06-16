@@ -3,45 +3,37 @@ import bpy
 from .spawn import SpawnNames
 
 
-class MYADDON_OT_spawn_create_symbol(bpy.types.Operator):
-    bl_idname = "myaddon.spawn_create_symbol"
-    bl_label = "出現ポイントシンボルの作成"
-    bl_description = "出現ポイントのシンボルを作成します"
-    bl_options = {"REGISTER", "UNDO"}
+def create_spawn_symbol(operator, context, type_name):
+    if type_name not in SpawnNames.names:
+        operator.report({"WARNING"}, f"未定義の出現ポイント種別です: {type_name}")
+        return {"CANCELLED"}
 
-    type: bpy.props.StringProperty(name="Type", default="Player")
+    spawn_data = SpawnNames.names[type_name]
+    prototype_name = spawn_data[SpawnNames.PROTOTYPE]
+    instance_name = spawn_data[SpawnNames.INSTANCE]
 
-    def execute(self, context):
-        if self.type not in SpawnNames.names:
-            self.report({"WARNING"}, f"未定義の出現ポイント種別です: {self.type}")
-            return {"CANCELLED"}
-
-        spawn_data = SpawnNames.names[self.type]
-        prototype_name = spawn_data[SpawnNames.PROTOTYPE]
-        instance_name = spawn_data[SpawnNames.INSTANCE]
-
+    prototype = bpy.data.objects.get(prototype_name)
+    if prototype is None:
+        bpy.ops.myaddon.spawn_import_symbol("EXEC_DEFAULT")
         prototype = bpy.data.objects.get(prototype_name)
-        if prototype is None:
-            bpy.ops.myaddon.spawn_import_symbol("EXEC_DEFAULT")
-            prototype = bpy.data.objects.get(prototype_name)
 
-        if prototype is None:
-            self.report({"WARNING"}, f"プロトタイプが見つかりません: {prototype_name}")
-            return {"CANCELLED"}
+    if prototype is None:
+        operator.report({"WARNING"}, f"プロトタイプが見つかりません: {prototype_name}")
+        return {"CANCELLED"}
 
-        obj = prototype.copy()
-        obj.data = prototype.data
-        obj.name = instance_name
-        obj["type"] = instance_name
-        obj.location = context.scene.cursor.location
+    obj = prototype.copy()
+    obj.data = prototype.data
+    obj.name = instance_name
+    obj["type"] = instance_name
+    obj.location = context.scene.cursor.location
 
-        context.collection.objects.link(obj)
+    context.collection.objects.link(obj)
 
-        bpy.ops.object.select_all(action="DESELECT")
-        obj.select_set(True)
-        context.view_layer.objects.active = obj
+    bpy.ops.object.select_all(action="DESELECT")
+    obj.select_set(True)
+    context.view_layer.objects.active = obj
 
-        return {"FINISHED"}
+    return {"FINISHED"}
 
 
 class MYADDON_OT_spawn_create_player_symbol(bpy.types.Operator):
@@ -51,7 +43,7 @@ class MYADDON_OT_spawn_create_player_symbol(bpy.types.Operator):
     bl_options = {"REGISTER", "UNDO"}
 
     def execute(self, context):
-        return bpy.ops.myaddon.spawn_create_symbol("EXEC_DEFAULT", type="Player")
+        return create_spawn_symbol(self, context, "Player")
 
 
 class MYADDON_OT_spawn_create_enemy_symbol(bpy.types.Operator):
@@ -61,4 +53,4 @@ class MYADDON_OT_spawn_create_enemy_symbol(bpy.types.Operator):
     bl_options = {"REGISTER", "UNDO"}
 
     def execute(self, context):
-        return bpy.ops.myaddon.spawn_create_symbol("EXEC_DEFAULT", type="Enemy")
+        return create_spawn_symbol(self, context, "Enemy")

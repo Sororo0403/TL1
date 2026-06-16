@@ -6,7 +6,7 @@ import bpy
 import bpy_extras
 from mathutils import Vector
 
-from .spawn import SpawnNames
+from .spawn import SpawnNames, get_available_obj_importers
 
 
 class MYADDON_OT_import_scene(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
@@ -35,8 +35,13 @@ class MYADDON_OT_import_scene(bpy.types.Operator, bpy_extras.io_utils.ImportHelp
         before_names = set(bpy.data.objects.keys())
         bpy.ops.object.select_all(action="DESELECT")
 
+        importers = get_available_obj_importers()
+        if not importers:
+            self.report({"WARNING"}, "利用可能なOBJインポート機能がありません")
+            return None
+
         errors = []
-        for import_obj in (bpy.ops.wm.obj_import, bpy.ops.import_scene.obj):
+        for import_obj in importers:
             try:
                 import_obj(filepath=filepath)
                 break

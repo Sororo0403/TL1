@@ -20,7 +20,6 @@ from .spawn import MYADDON_OT_spawn_import_symbol
 from .create_spawn import (
     MYADDON_OT_spawn_create_enemy_symbol,
     MYADDON_OT_spawn_create_player_symbol,
-    MYADDON_OT_spawn_create_symbol,
 )
 
 
@@ -55,7 +54,6 @@ classes = (
     MYADDON_OT_export_wp0_scene,
     MYADDON_OT_import_scene,
     MYADDON_OT_spawn_import_symbol,
-    MYADDON_OT_spawn_create_symbol,
     MYADDON_OT_spawn_create_enemy_symbol,
     MYADDON_OT_spawn_create_player_symbol,
     TOPBAR_MT_my_menu,

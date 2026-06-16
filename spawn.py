@@ -14,6 +14,18 @@ class SpawnNames:
     }
 
 
+def get_available_obj_importers():
+    importers = []
+
+    if hasattr(bpy.ops.wm, "obj_import"):
+        importers.append(bpy.ops.wm.obj_import)
+
+    if hasattr(bpy.ops, "import_scene") and hasattr(bpy.ops.import_scene, "obj"):
+        importers.append(bpy.ops.import_scene.obj)
+
+    return importers
+
+
 class MYADDON_OT_spawn_import_symbol(bpy.types.Operator):
     bl_idname = "myaddon.spawn_import_symbol"
     bl_label = "出現ポイントシンボル読み込み"
@@ -39,8 +51,13 @@ class MYADDON_OT_spawn_import_symbol(bpy.types.Operator):
         before_names = set(bpy.data.objects.keys())
         bpy.ops.object.select_all(action="DESELECT")
 
+        importers = get_available_obj_importers()
+        if not importers:
+            self.report({"WARNING"}, "利用可能なOBJインポート機能がありません")
+            return {"CANCELLED"}
+
         errors = []
-        for import_obj in (bpy.ops.wm.obj_import, bpy.ops.import_scene.obj):
+        for import_obj in importers:
             try:
                 import_obj(filepath=filepath)
                 break

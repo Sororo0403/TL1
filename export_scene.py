@@ -13,6 +13,7 @@ EXPORTED_PROPERTY_KEYS = {
     "_RNA_UI",
     "type",
     "file_name",
+    "disabled",
     "collider",
     "collider_center",
     "collider_size",
@@ -51,6 +52,9 @@ def parse_object(parent_list, obj):
 
     if "file_name" in obj:
         data["file_name"] = obj["file_name"]
+
+    if "disabled" in obj:
+        data["disabled"] = obj["disabled"]
 
     custom_properties = {}
     for key in obj.keys():
