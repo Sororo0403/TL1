@@ -373,3 +373,10 @@ app/imgui.ini
 
 # LikeEngine project import and Script build cache
 /projects/*/library/
+
+# LikeEngine packaged player build output
+/projects/*/build/
+
+# Generated static-analysis reports (keep the checked-in README)
+/reports/static-analysis/*.txt
+/reports/static-analysis/*.html
